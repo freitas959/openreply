@@ -21,6 +21,7 @@ interface Campaign {
   postUrl: string | null;
   pendingNextReel: boolean;
   matchAnyPost: boolean;
+  matchLive?: boolean;
   keywords: string[];
   matchAnyWord: boolean;
   dmMessage: string;
@@ -432,6 +433,11 @@ export default function CampaignsPage() {
                   >
                     {auto.isActive ? t("Active") : t("Paused")}
                   </span>
+                  {auto.matchLive && (
+                    <span className="shrink-0 rounded-full bg-error/10 px-2 py-0.5 text-xs font-medium text-error">
+                      {t("Live")}
+                    </span>
+                  )}
                   {auto.pendingNextReel && (
                     <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-warning">
                       {t("Waiting for next reel")}

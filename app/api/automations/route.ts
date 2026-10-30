@@ -33,6 +33,7 @@ const createAutomationSchema = z
     postUrl: z.string().url().optional().nullable(),
     pendingNextReel: z.boolean().optional().default(false),
     matchAnyPost: z.boolean().optional().default(false),
+    matchLive: z.boolean().optional().default(false),
     keywords: z.array(z.string().min(1).max(50)).max(10).optional().default([]),
     matchAnyWord: z.boolean().optional().default(false),
     dmTriggerEnabled: z.boolean().optional().default(false),
@@ -70,9 +71,9 @@ const createAutomationSchema = z
     isActive: z.boolean().optional().default(true),
     wholeWordMatch: z.boolean().optional().default(true),
   })
-  // A campaign must target a specific post, any post, or the next reel.
+  // A campaign must target a specific post, any post, the next reel, or a live.
   .refine(
-    (d) => d.matchAnyPost || d.pendingNextReel || Boolean(d.postId),
+    (d) => d.matchAnyPost || d.pendingNextReel || d.matchLive || Boolean(d.postId),
     { message: "Choose which post(s) trigger the campaign", path: ["postId"] }
   )
   // And it must match either specific words or any word.
@@ -97,6 +98,7 @@ const updateAutomationSchema = z.object({
   postUrl: z.string().url().optional().nullable(),
   pendingNextReel: z.boolean().optional(),
   matchAnyPost: z.boolean().optional(),
+  matchLive: z.boolean().optional(),
   keywords: z.array(z.string().min(1).max(50)).max(10).optional(),
   matchAnyWord: z.boolean().optional(),
   dmTriggerEnabled: z.boolean().optional(),
@@ -358,10 +360,12 @@ export async function POST(request: NextRequest) {
     secondaryLabel: parsed.data.secondaryButtonLabel,
   });
 
-  const { pendingNextReel, matchAnyPost, matchAnyWord, openingDmEnabled } =
+  const { pendingNextReel, matchAnyPost, matchLive, matchAnyWord, openingDmEnabled } =
     parsed.data;
   // A post is only stored for the "specific post" trigger.
-  const isSpecificPost = !pendingNextReel && !matchAnyPost;
+  const isSpecificPost = !pendingNextReel && !matchAnyPost && !matchLive;
+  // The live chat has no threaded replies, so a live campaign never posts one.
+  const publicReplyEnabled = parsed.data.publicReplyEnabled && !matchLive;
   const publicReplyList = (
     parsed.data.publicReplyMessages.length > 0
       ? parsed.data.publicReplyMessages
@@ -379,8 +383,10 @@ export async function POST(request: NextRequest) {
       // A next-reel campaign has no post yet; the cron binds it once a reel is posted.
       postId: isSpecificPost ? parsed.data.postId : null,
       postUrl: isSpecificPost ? parsed.data.postUrl : null,
-      pendingNextReel,
-      matchAnyPost,
+      // The trigger scopes are exclusive; a live campaign is only a live one.
+      pendingNextReel: matchLive ? false : pendingNextReel,
+      matchAnyPost: matchLive ? false : matchAnyPost,
+      matchLive,
       keywords: matchAnyWord ? [] : parsed.data.keywords,
       matchAnyWord,
       dmTriggerEnabled: parsed.data.dmTriggerEnabled,
@@ -407,11 +413,9 @@ export async function POST(request: NextRequest) {
       followUpDelayMinutes: parsed.data.followUpEnabled
         ? parsed.data.followUpDelayMinutes
         : 0,
-      publicReplyEnabled: parsed.data.publicReplyEnabled,
-      publicReplyMessages: parsed.data.publicReplyEnabled
-        ? publicReplyList
-        : [],
-      publicReplyMessage: parsed.data.publicReplyEnabled
+      publicReplyEnabled,
+      publicReplyMessages: publicReplyEnabled ? publicReplyList : [],
+      publicReplyMessage: publicReplyEnabled
         ? publicReplyList[0] ?? parsed.data.publicReplyMessage ?? null
         : null,
       isActive: parsed.data.isActive,
@@ -524,10 +528,20 @@ export async function PATCH(request: NextRequest) {
     automationData.followUpMessage = null;
     automationData.followUpDelayMinutes = 0;
   }
-  // Any-post / next-reel campaigns carry no specific post.
-  if (automationData.matchAnyPost === true || automationData.pendingNextReel === true) {
+  // Any-post / next-reel / live campaigns carry no specific post.
+  if (
+    automationData.matchAnyPost === true ||
+    automationData.pendingNextReel === true ||
+    automationData.matchLive === true
+  ) {
     automationData.postId = null;
     automationData.postUrl = null;
+  }
+  // A live campaign is only a live one, and the live chat takes no public reply.
+  if (automationData.matchLive === true) {
+    automationData.matchAnyPost = false;
+    automationData.pendingNextReel = false;
+    automationData.publicReplyEnabled = false;
   }
   // Keep the public-reply variations list and the legacy single field in sync.
   if (automationData.publicReplyMessages !== undefined) {

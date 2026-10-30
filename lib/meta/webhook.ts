@@ -45,6 +45,12 @@ export interface WebhookCommentEvent {
    * matching has to consider it as well as mediaId.
    */
   originalMediaId?: string;
+  /**
+   * True when the comment was left during an Instagram Live. Meta delivers
+   * those under their own webhook field, live_comments, and a private reply to
+   * one is only accepted while the broadcast is still on air.
+   */
+  isLive?: boolean;
 }
 
 interface WebhookEntry {
@@ -121,7 +127,10 @@ export function parseCommentEvents(payload: WebhookPayload): WebhookCommentEvent
 
   for (const entry of payload.entry ?? []) {
     for (const change of entry.changes ?? []) {
-      if (change.field !== "comments") continue;
+      // Comments on an Instagram Live arrive under their own field. They are
+      // otherwise shaped like post comments, so both share this path.
+      const isLive = change.field === "live_comments";
+      if (change.field !== "comments" && !isLive) continue;
 
       const value = change.value;
       const commentId = value?.id ?? value?.comment_id;
@@ -154,6 +163,7 @@ export function parseCommentEvents(payload: WebhookPayload): WebhookCommentEvent
         commenterName: value.from?.username,
         mediaId,
         originalMediaId,
+        ...(isLive ? { isLive: true } : {}),
       });
     }
   }

@@ -25,7 +25,7 @@ import {
   type ImportRow,
 } from "@/lib/import-queue";
 
-type TriggerScope = "specific" | "any" | "next";
+type TriggerScope = "specific" | "any" | "next" | "live";
 type MatchMode = "specific" | "any";
 
 interface LoadedCampaign {
@@ -35,6 +35,7 @@ interface LoadedCampaign {
   postUrl: string | null;
   pendingNextReel: boolean;
   matchAnyPost: boolean;
+  matchLive?: boolean;
   keywords: string[];
   matchAnyWord: boolean;
   wholeWordMatch?: boolean;
@@ -256,7 +257,13 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
         setName(c.name);
         setSelectedAccountId(c.instagramAccountId);
         setTriggerScope(
-          c.matchAnyPost ? "any" : c.pendingNextReel ? "next" : "specific"
+          c.matchLive
+            ? "live"
+            : c.matchAnyPost
+              ? "any"
+              : c.pendingNextReel
+                ? "next"
+                : "specific"
         );
         setPostId(c.postId);
         setPostUrl(c.postUrl);
@@ -409,6 +416,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
       postUrl: triggerScope === "specific" ? postUrl : null,
       matchAnyPost: triggerScope === "any",
       pendingNextReel: triggerScope === "next",
+      matchLive: triggerScope === "live",
       matchAnyWord: matchMode === "any",
       keywords: matchMode === "any" ? [] : keywords,
       wholeWordMatch,
@@ -417,10 +425,12 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
       openingDmEnabled,
       openingDmMessage: openingDmEnabled ? openingDmMessage : null,
       openingDmButtonLabel: openingDmEnabled ? openingDmButtonLabel : null,
-      publicReplyEnabled,
-      publicReplyMessages: publicReplyEnabled
-        ? publicReplyMessages.map((m) => m.trim()).filter(Boolean)
-        : [],
+      // A live campaign never posts a public reply (the server enforces it too).
+      publicReplyEnabled: publicReplyEnabled && triggerScope !== "live",
+      publicReplyMessages:
+        publicReplyEnabled && triggerScope !== "live"
+          ? publicReplyMessages.map((m) => m.trim()).filter(Boolean)
+          : [],
       trackedDestinationUrl: trackedDestinationUrl.trim() || "",
       linkButtonLabel: linkButtonLabel.trim() || "Open link",
       secondaryDestinationUrl: secondaryDestinationUrl.trim() || "",
@@ -701,6 +711,19 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
           >
             {t("next post or reel")}
           </Radio>
+          <Radio
+            checked={triggerScope === "live"}
+            onSelect={() => setTriggerScope("live")}
+          >
+            {t("a live broadcast")}
+          </Radio>
+          {triggerScope === "live" && (
+            <div className="space-y-1 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs text-warning">
+              <p>{t("Replies only while the live is on air. Instagram rejects them once the broadcast ends.")}</p>
+              <p>{t("Instagram allows about 750 DMs per hour, so a busy live may end before everyone gets theirs.")}</p>
+              <p>{t("Use a keyword only for lives, and subscribe your Meta webhook to live_comments.")}</p>
+            </div>
+          )}
         </Section>
 
         <Section title={t("And this comment has")}>
@@ -756,16 +779,19 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                 : t("A DM containing any of these words gets the same reply, no comment needed.")}
             </p>
           )}
-          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-            <span className="text-sm text-foreground">
-              {t("reply to their comments under the post")}
-            </span>
-            <Toggle
-              on={publicReplyEnabled}
-              onToggle={() => setPublicReplyEnabled(!publicReplyEnabled)}
-            />
-          </div>
-          {publicReplyEnabled && (
+          {/* The live chat has no threaded replies, so a live campaign only DMs. */}
+          {triggerScope !== "live" && (
+            <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+              <span className="text-sm text-foreground">
+                {t("reply to their comments under the post")}
+              </span>
+              <Toggle
+                on={publicReplyEnabled}
+                onToggle={() => setPublicReplyEnabled(!publicReplyEnabled)}
+              />
+            </div>
+          )}
+          {publicReplyEnabled && triggerScope !== "live" && (
             <div className="space-y-2">
               {publicReplyMessages.map((msg, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -1007,7 +1033,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
             caption={postCaption}
             sampleComment={keywords[0] ?? ""}
             dmTriggerEnabled={dmTriggerEnabled}
-            publicReplyEnabled={publicReplyEnabled}
+            publicReplyEnabled={publicReplyEnabled && triggerScope !== "live"}
             publicReplyMessage={publicReplyMessages.find((m) => m.trim()) ?? ""}
             openingDmEnabled={openingDmEnabled}
             openingDmMessage={openingDmMessage}

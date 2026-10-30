@@ -195,6 +195,11 @@ model Automation {
   postUrl        String?
   pendingNextReel Boolean @default(false)
   matchAnyPost   Boolean @default(false)
+  // Fires on comments left during an Instagram Live (webhook field
+  // live_comments). A live does not exist before it starts, so like
+  // matchAnyPost the campaign carries no postId. Live comments only ever
+  // match live campaigns, and live campaigns only ever match live comments.
+  matchLive      Boolean @default(false)
   keywords       String[]
   matchAnyWord   Boolean @default(false)
   // Also fire this campaign when someone sends a DM whose text matches the

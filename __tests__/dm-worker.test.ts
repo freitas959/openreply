@@ -1764,3 +1764,69 @@ it("retains the public reply claim if sending succeeded but its log write failed
   expect(sendCommentReply).toHaveBeenCalledTimes(1);
   expect(mockSendPrivateReply).toHaveBeenCalledTimes(1);
 });
+
+describe("DM Worker — comments left during an Instagram Live", () => {
+  const liveAutomation = {
+    ...mockAutomation,
+    postId: null,
+    matchLive: true,
+    publicReplyEnabled: true,
+    publicReplyMessages: ["Sent you a DM!"],
+  };
+
+  it("matches only live campaigns for a live comment", async () => {
+    mockPrisma.automation.findMany.mockResolvedValue([liveAutomation]);
+    const process = getProcessor();
+
+    await process(createMockJob({ ...mockJobData, mediaId: "live_media_1", isLive: true }));
+
+    expect(mockPrisma.automation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ OR: [{ matchLive: true }] }),
+      })
+    );
+    expect(mockSendPrivateReply).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps post comments away from live campaigns", async () => {
+    const process = getProcessor();
+
+    await process(createMockJob());
+
+    const where = mockPrisma.automation.findMany.mock.calls[0][0].where;
+    expect(where.OR).not.toContainEqual({ matchLive: true });
+  });
+
+  it("never posts a public reply under a live comment", async () => {
+    const { sendCommentReply } = await import("@/lib/meta/client");
+    vi.mocked(sendCommentReply).mockClear();
+    mockPrisma.automation.findMany.mockResolvedValue([liveAutomation]);
+    const process = getProcessor();
+
+    await process(createMockJob({ ...mockJobData, mediaId: "live_media_1", isLive: true }));
+
+    expect(sendCommentReply).not.toHaveBeenCalled();
+    expect(mockSendPrivateReply).toHaveBeenCalledTimes(1);
+  });
+
+  it("explains a failed live reply with the on-air rule", async () => {
+    mockPrisma.automation.findMany.mockResolvedValue([liveAutomation]);
+    mockSendPrivateReply.mockRejectedValue(new RateLimitError("Broadcast closed"));
+    const process = getProcessor();
+
+    await expect(
+      process(createMockJob({ ...mockJobData, mediaId: "live_media_1", isLive: true }))
+    ).rejects.toThrow("Broadcast closed");
+
+    expect(mockPrisma.dmLog.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "FAILED",
+          errorMessage: expect.stringContaining(
+            "Meta only accepts the private reply while the broadcast is on air"
+          ),
+        }),
+      })
+    );
+  });
+});

@@ -468,5 +468,11 @@
   "{name} Campaign Report": "Relatório da campanha {name}",
   "{type} post": "Publicação {type}",
   "”": "”",
-  "← Campaigns": "← Campanhas"
+  "← Campaigns": "← Campanhas",
+  "a live broadcast": "uma live (ao vivo)",
+  "A live broadcast": "Uma live (ao vivo)",
+  "Live": "Live",
+  "Replies only while the live is on air. Instagram rejects them once the broadcast ends.": "Só responde enquanto a live estiver no ar. O Instagram recusa as respostas depois que a transmissão termina.",
+  "Instagram allows about 750 DMs per hour, so a busy live may end before everyone gets theirs.": "O Instagram permite cerca de 750 DMs por hora, então uma live movimentada pode acabar antes de todos receberem.",
+  "Use a keyword only for lives, and subscribe your Meta webhook to live_comments.": "Use uma palavra-chave só para lives e assine o campo live_comments no webhook da Meta."
 }

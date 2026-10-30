@@ -515,3 +515,55 @@ describe("parseReadEvents", () => {
     expect(parseReadEvents(payload)).toHaveLength(0);
   });
 });
+
+describe("parseCommentEvents — Instagram Live", () => {
+  const liveChange = (value: Record<string, unknown>) => ({
+    object: "instagram",
+    entry: [{ id: "ig_account_1", time: Date.now(), changes: [{ field: "live_comments", value }] }],
+  });
+
+  it("parses a live_comments change and marks it as live", () => {
+    const events = parseCommentEvents(
+      liveChange({
+        id: "live_comment_1",
+        text: "LIVE10",
+        from: { id: "viewer_1", username: "viewer" },
+        media: { id: "live_media_1", media_product_type: "LIVE" },
+      }) as Parameters<typeof parseCommentEvents>[0]
+    );
+
+    expect(events).toEqual([
+      {
+        instagramAccountId: "ig_account_1",
+        commentId: "live_comment_1",
+        commentText: "LIVE10",
+        commenterId: "viewer_1",
+        commenterName: "viewer",
+        mediaId: "live_media_1",
+        originalMediaId: undefined,
+        isLive: true,
+      },
+    ]);
+  });
+
+  it("does not mark regular post comments as live", () => {
+    const events = parseCommentEvents({
+      object: "instagram",
+      entry: [{
+        id: "ig_account_1",
+        time: Date.now(),
+        changes: [{ field: "comments", value: { id: "c1", text: "LINK", from: { id: "u1" }, media: { id: "m1" } } }],
+      }],
+    } as Parameters<typeof parseCommentEvents>[0]);
+
+    expect(events).toHaveLength(1);
+    expect(events[0].isLive).toBeUndefined();
+  });
+
+  it("skips the account's own live comments", () => {
+    const events = parseCommentEvents(
+      liveChange({ id: "c2", text: "hi", from: { id: "ig_account_1" }, media: { id: "live_media_1" } }) as Parameters<typeof parseCommentEvents>[0]
+    );
+    expect(events).toHaveLength(0);
+  });
+});

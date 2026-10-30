@@ -468,5 +468,11 @@
   "{name} Campaign Report": "Отчёт по кампании «{name}»",
   "{type} post": "Пост {type}",
   "”": "»",
-  "← Campaigns": "← Кампании"
+  "← Campaigns": "← Кампании",
+  "a live broadcast": "прямой эфир",
+  "A live broadcast": "Прямой эфир",
+  "Live": "Эфир",
+  "Replies only while the live is on air. Instagram rejects them once the broadcast ends.": "Ответы отправляются только во время эфира. После окончания трансляции Instagram их отклоняет.",
+  "Instagram allows about 750 DMs per hour, so a busy live may end before everyone gets theirs.": "Instagram разрешает около 750 сообщений в час, поэтому оживлённый эфир может закончиться раньше, чем все получат своё.",
+  "Use a keyword only for lives, and subscribe your Meta webhook to live_comments.": "Используйте ключевое слово только для эфиров и подпишите вебхук Meta на поле live_comments."
 }

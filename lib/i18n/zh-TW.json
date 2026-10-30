@@ -468,5 +468,11 @@
   "{name} Campaign Report": "{name} 活動報表",
   "{type} post": "{type} 貼文",
   "”": "」",
-  "← Campaigns": "← 返回活動列表"
+  "← Campaigns": "← 返回活動列表",
+  "a live broadcast": "直播",
+  "A live broadcast": "直播",
+  "Live": "直播",
+  "Replies only while the live is on air. Instagram rejects them once the broadcast ends.": "只在直播進行中回覆。直播結束後，Instagram 會拒絕這些回覆。",
+  "Instagram allows about 750 DMs per hour, so a busy live may end before everyone gets theirs.": "Instagram 每小時約允許 750 則私訊，熱門直播可能在所有人收到前就結束。",
+  "Use a keyword only for lives, and subscribe your Meta webhook to live_comments.": "請使用直播專用的關鍵字，並在 Meta webhook 訂閱 live_comments 欄位。"
 }

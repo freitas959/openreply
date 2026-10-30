@@ -111,6 +111,17 @@ function formatError(error: unknown): string {
   return "Unknown error";
 }
 
+// Meta accepts a private reply to a live comment only while the broadcast is
+// on air, and its rejection afterwards does not say so. A failed live reply
+// carries that context so the log points at the likely cause.
+export const LIVE_REPLY_FAILURE_NOTE =
+  "Live comment: Meta only accepts the private reply while the broadcast is on air";
+
+export function describeCommentSendFailure(error: unknown, isLive: boolean): string {
+  const detail = formatError(error);
+  return isLive ? `${LIVE_REPLY_FAILURE_NOTE}. ${detail}` : detail;
+}
+
 // Meta rejections that a plain-text retry cannot fix: the send was refused for
 // the conversation, not for the button template. Retrying as text just burns
 // the attempt and — worse — overwrites the real error with a misleading one
@@ -286,6 +297,7 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
     commenterName,
     mediaId,
     originalMediaId,
+    isLive = false,
   } = job.data;
   const requeueAttempt = job.data.requeueAttempt ?? 0;
 
@@ -296,11 +308,17 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
       // A comment left on an ad carries the ad's own media id, while the
       // campaign is bound to the post the ad was created from, so both ids
       // have to be considered or the comment is dropped without a trace.
-      OR: [
-        { postId: mediaId },
-        ...(originalMediaId ? [{ postId: originalMediaId }] : []),
-        { matchAnyPost: true },
-      ],
+      //
+      // A comment left during an Instagram Live matches only live campaigns:
+      // the broadcast has no post to bind to, and an any-post campaign was set
+      // up for the feed, not for the live chat.
+      OR: isLive
+        ? [{ matchLive: true }]
+        : [
+            { postId: mediaId },
+            ...(originalMediaId ? [{ postId: originalMediaId }] : []),
+            { matchAnyPost: true },
+          ],
       isActive: true,
       instagramAccount: {
         instagramId: instagramAccountId,
@@ -452,7 +470,10 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
         : automation.publicReplyMessage
           ? [automation.publicReplyMessage]
           : [];
+    // A live comment gets no public reply: the live chat has no threaded
+    // replies, so only the private reply below applies.
     if (
+      !isLive &&
       automation.publicReplyEnabled &&
       replyPool.length > 0 &&
       !existingLog?.publicReplySentAt &&
@@ -791,7 +812,7 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
         data: {
           status: delivered ? "SENT" : "FAILED",
           ...(delivered ? { dmSentAt: new Date() } : {}),
-          errorMessage: formatError(sendError),
+          errorMessage: describeCommentSendFailure(sendError, isLive),
           dmDeliveryUnconfirmed: isDeliveryUnconfirmed(sendError),
         },
       });
